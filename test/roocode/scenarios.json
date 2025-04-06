@@ -1,0 +1,15 @@
+{
+    "debian_defaults": {
+        "image": "mcr.microsoft.com/devcontainers/base:debian",
+        "features": {
+            "roocode": {}
+    },
+    "ubuntu_specific_python": {
+        "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+        "features": {
+            "roocode": {
+                "installGitAlias": false
+            }
+        }
+    }
+}

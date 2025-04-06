@@ -1,0 +1,37 @@
+name: Publish Dev Container Feature
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+    paths:
+      - 'src/**' # Only run if files in src/ change
+  workflow_dispatch: # Allow manual triggering
+
+permissions: # Required for publishing to GHCR
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish Feature to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Publish Feature
+        # Use the official Dev Containers CLI action
+        uses: devcontainers/cli/actions/publish@v0 # Use a specific version if preferred
+        with:
+          # Features to publish (space-separated if multiple)
+          # Matches the directory name in src/
+          features: roocode
+          # The GHCR namespace format: ghcr.io/<owner>/features
+          namespace: ghcr.io/${{ github.repository_owner }}/features
+          # Optional: Define specific tags or use default behavior (latest + version)
+          # version_strategy: <...> # See action docs for options
+        env:
+           # GITHUB_TOKEN is automatically provided by GitHub Actions
+           # Required for authentication to GHCR
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
