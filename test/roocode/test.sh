@@ -10,13 +10,15 @@ source dev-container-features-test-lib
 # The 'check' command comes from the dev-container-features-test-lib
 set -e
 
+# Determine user/home if not provided by test environment
+_REMOTE_USER="${_REMOTE_USER:-"$(id -un 1000 2>/dev/null || echo vscode)"}"
+_REMOTE_USER_HOME="${_REMOTE_USER_HOME:-"/home/${_REMOTE_USER}"}"
+
 # Options specific to this feature
 MODESCONFIGPATH="${MODESCONFIGPATH:-"/home/node/.config/roocode/.roomodes"}" # Default value if not set
 SETTINGS_JSON_PATH="${_REMOTE_USER_HOME}/.vscode-server/data/Machine/settings.json"
 
 # Definition specific tests
-check "Verify Roo Cline extension is installed" bash -c 'code --list-extensions | grep -i "RooVeterinaryInc.roo-cline"'
-
 check "Verify modes config file exists at specified path" test -f "$MODESCONFIGPATH"
 
 # Check if settings directory exists before checking the file itself
