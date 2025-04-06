@@ -1,6 +1,6 @@
 {
     "id": "roocode",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "name": "RooCode Integration",
     "description": "Installs the RooCode VS Code extension and configures default modes.",
     "documentationURL": "https://github.com/your-repo/roocode-devcontainer-feature",
