@@ -22,7 +22,10 @@ SETTINGS_JSON_PATH="${_REMOTE_USER_HOME}/.vscode-server/data/Machine/settings.js
 check "jq is installed" command -v jq
 
 # Definition specific tests
-check "Verify modes config file exists at specified path (\$MODESCONFIGPATH)" test -f "$MODESCONFIGPATH"
+# install.sh determines user/home and creates the file relative to that.
+# For root/debian scenarios, this should consistently be /home/node/.config/roocode/.roomodes
+EXPECTED_MODES_PATH="/home/node/.config/roocode/.roomodes"
+check "Verify modes config file exists at determined user path (${EXPECTED_MODES_PATH})" test -f "$EXPECTED_MODES_PATH"
 
 # Check if settings directory exists before checking the file itself
 check "Verify VS Code settings directory exists" test -d "$(dirname "$SETTINGS_JSON_PATH")"
@@ -30,7 +33,8 @@ check "Verify VS Code settings directory exists" test -d "$(dirname "$SETTINGS_J
 check "Verify VS Code settings file exists" test -f "$SETTINGS_JSON_PATH"
 
 # Check setting using jq, assuming it's installed by install.sh
-check "Verify roocode.modesConfigPath setting is correctly configured in VS Code settings using jq" jq -e --arg path "$MODESCONFIGPATH" '."roocode.modesConfigPath" == $path' "$SETTINGS_JSON_PATH"
+# The setting in settings.json should reflect the *actual* path determined and used by install.sh
+check "Verify roocode.modesConfigPath setting matches determined path (${EXPECTED_MODES_PATH}) in VS Code settings using jq" jq -e --arg path "$EXPECTED_MODES_PATH" '."roocode.modesConfigPath" == $path' "$SETTINGS_JSON_PATH"
 
 # Report results
 # If any of the checks above exited with a non-zero exit code, the script will have exited automatically due to 'set -e'

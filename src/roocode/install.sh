@@ -33,9 +33,23 @@ elif [ "$(id -u)" -eq 0 ]; then
             if ! getent group ${USERNAME} > /dev/null 2>&1; then
                 groupadd -r ${USERNAME} -g 1000
             fi
-            # Create user
-            useradd -l -r -u 1000 -g ${USERNAME} -m -s /bin/bash ${USERNAME}
-            echo "Created user '${USERNAME}'."
+            # Create user - removed -l flag, ensure home dir exists with correct perms
+            useradd -r -u 1000 -g ${USERNAME} -m -s /bin/bash ${USERNAME}
+            echo "Attempted to create user '${USERNAME}'."
+            # Verify user creation and home directory
+            if ! id -u ${USERNAME} > /dev/null 2>&1; then
+                echo "Error: Failed to create user '${USERNAME}'."
+                exit 1
+            fi
+            USER_HOME_CREATED=$(getent passwd ${USERNAME} | cut -d: -f6)
+            if [ -z "${USER_HOME_CREATED}" ] || [ ! -d "${USER_HOME_CREATED}" ]; then
+                echo "Warning: Home directory '${USER_HOME_CREATED:-/home/$USERNAME}' not found or not created automatically for ${USERNAME}. Attempting manual creation."
+                # Use the standard expected path if getent failed
+                USER_HOME_TO_CREATE="/home/${USERNAME}"
+                mkdir -p "${USER_HOME_TO_CREATE}"
+                # Attempt chown, using USERNAME for group as fallback if group creation failed earlier or isn't primary
+                chown "${USERNAME}:${USERNAME}" "${USER_HOME_TO_CREATE}" || echo "Warning: Initial chown for ${USER_HOME_TO_CREATE} failed."
+            fi
         else
              echo "User '${USERNAME}' already exists."
         fi
@@ -72,11 +86,20 @@ if [ -z "${USER_HOME}" ] || [ ! -d "${USER_HOME}" ]; then
         echo "Home directory for '${USERNAME}' not found via getent and _REMOTE_USER_HOME not suitable/provided. Using standard fallback: ${FALLBACK_HOME}"
         USER_HOME="${FALLBACK_HOME}"
         # Ensure home directory exists if we derived it
+        # Ensure home directory exists if we derived it via fallback
         if [ ! -d "${USER_HOME}" ]; then
-            echo "Creating home directory ${USER_HOME} for user ${USERNAME}."
+            echo "Creating fallback home directory ${USER_HOME} for user ${USERNAME}."
+            # Create parent directories if they don't exist
+            mkdir -p "$(dirname "${USER_HOME}")"
+            # Create the home directory itself
             mkdir -p "${USER_HOME}"
+            # Attempt to set ownership
             USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME})
-            chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"
+            if chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"; then
+                echo "Ownership set for ${USER_HOME}"
+            else
+                echo "Warning: Failed to set ownership for ${USER_HOME}. Permissions might be incorrect."
+            fi
         fi
     fi
 else
@@ -91,11 +114,20 @@ if [ -n "${_REMOTE_USER}" ] && [ "${_REMOTE_USER}" = "${USERNAME}" ] && \
     echo "Warning: Determined home '${USER_HOME}' differs from provided _REMOTE_USER_HOME '${_REMOTE_USER_HOME}' for user '${USERNAME}'. Preferring _REMOTE_USER_HOME."
     USER_HOME="${_REMOTE_USER_HOME}"
     # Ensure the directory exists if we switch to it
+    # Ensure the preferred directory exists if we switch to it
     if [ ! -d "${USER_HOME}" ]; then
-        echo "Creating preferred home directory ${_REMOTE_USER_HOME}..."
+        echo "Creating preferred home directory ${_REMOTE_USER_HOME} for user ${USERNAME}..."
+        # Create parent directories if they don't exist
+        mkdir -p "$(dirname "${USER_HOME}")"
+        # Create the home directory itself
         mkdir -p "${USER_HOME}"
+        # Attempt to set ownership
         USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME})
-        chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"
+        if chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"; then
+            echo "Ownership set for ${USER_HOME}"
+        else
+            echo "Warning: Failed to set ownership for ${USER_HOME}. Permissions might be incorrect."
+        fi
     fi
 fi
 
