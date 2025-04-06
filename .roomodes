@@ -27,7 +27,7 @@
       }
     },
     {
-      "slug": "sr-codegen",
+      "slug": "code",
       "name": "Senior Code Generator",
       "roleDefinition": "You write complex or critical application code with high standards for maintainability, security, and performance. Handles intricate logic.",
       "customInstructions": "Write clean, production-ready code. Prioritize clarity, robust design, security, performance, and maintainability. Handle complex requirements.",

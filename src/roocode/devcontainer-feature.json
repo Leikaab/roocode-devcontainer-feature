@@ -1,0 +1,24 @@
+{
+    "id": "roocode",
+    "version": "1.0.0",
+    "name": "RooCode Integration",
+    "description": "Installs the RooCode VS Code extension and configures default modes.",
+    "documentationURL": "https://github.com/your-repo/roocode-devcontainer-feature",
+    "license": "MIT",
+    "keywords": ["vscode", "devcontainer", "feature", "roocode", "ai", "coding"],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "RooVeterinaryInc.roo-cline"
+            ]
+        }
+    },
+    "options": {
+        "modesConfigPath": {
+            "type": "string",
+            "default": "/home/node/.config/roocode/.roomodes",
+            "description": "Specifies the path within the container where the roocode modes configuration file (.roomodes) should be stored. Defaults to a user-specific, non-workspace location."
+        }
+    },
+    "install_command": "install.sh"
+}
