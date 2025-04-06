@@ -20,38 +20,72 @@ if [ -n "${_REMOTE_USER}" ] && [ "${_REMOTE_USER}" != "root" ]; then
 elif [ "$(id -u)" -eq 0 ]; then
     echo "Running as root."
     # Try to find user 1000
-    EXISTING_USER_1000=$(id -un 1000 2>/dev/null)
+    # Try to find user with UID 1000 using getent if available, otherwise id
+    if command -v getent > /dev/null 2>&1; then
+        EXISTING_USER_1000=$(getent passwd 1000 | cut -d: -f1)
+    else
+        echo "Warning: 'getent' command not found. Falling back to 'id' to find user 1000."
+        EXISTING_USER_1000=$(id -un 1000 2>/dev/null)
+    fi
+
     if [ -n "${EXISTING_USER_1000}" ]; then
         USERNAME=${EXISTING_USER_1000}
         echo "Using existing user '${USERNAME}' (UID 1000)."
     else
-        # If user 1000 not found, create a default user 'node'
+        # User 1000 not found, try to create 'node' user with UID 1000
         USERNAME=node
-        echo "User 1000 not found. Checking/creating user '${USERNAME}' with UID 1000."
-        if ! id -u ${USERNAME} > /dev/null 2>&1; then
-            # Create group if it doesn't exist
-            if ! getent group ${USERNAME} > /dev/null 2>&1; then
-                groupadd -r ${USERNAME} -g 1000
-            fi
-            # Create user - removed -l flag, ensure home dir exists with correct perms
-            useradd -r -u 1000 -g ${USERNAME} -m -s /bin/bash ${USERNAME}
-            echo "Attempted to create user '${USERNAME}'."
-            # Verify user creation and home directory
-            if ! id -u ${USERNAME} > /dev/null 2>&1; then
-                echo "Error: Failed to create user '${USERNAME}'."
-                exit 1
-            fi
-            USER_HOME_CREATED=$(getent passwd ${USERNAME} | cut -d: -f6)
-            if [ -z "${USER_HOME_CREATED}" ] || [ ! -d "${USER_HOME_CREATED}" ]; then
-                echo "Warning: Home directory '${USER_HOME_CREATED:-/home/$USERNAME}' not found or not created automatically for ${USERNAME}. Attempting manual creation."
-                # Use the standard expected path if getent failed
-                USER_HOME_TO_CREATE="/home/${USERNAME}"
-                mkdir -p "${USER_HOME_TO_CREATE}"
-                # Attempt chown, using USERNAME for group as fallback if group creation failed earlier or isn't primary
-                chown "${USERNAME}:${USERNAME}" "${USER_HOME_TO_CREATE}" || echo "Warning: Initial chown for ${USER_HOME_TO_CREATE} failed."
+        echo "No user with UID 1000 found. Attempting to create user '${USERNAME}' with UID 1000."
+
+        # Check if useradd and groupadd commands exist
+        if ! command -v useradd > /dev/null 2>&1 || ! command -v groupadd > /dev/null 2>&1; then
+            echo "Error: 'useradd' or 'groupadd' command not found. Cannot create user."
+            exit 1
+        fi
+
+        # Check if group 'node' or GID 1000 exists
+        if ! getent group ${USERNAME} > /dev/null 2>&1 && ! getent group 1000 > /dev/null 2>&1; then
+            echo "Creating group '${USERNAME}' with GID 1000."
+            groupadd --gid 1000 ${USERNAME}
+            if [ $? -ne 0 ]; then
+                echo "Warning: Failed to create group '${USERNAME}' with GID 1000. User creation might fail or use a different group."
             fi
         else
-             echo "User '${USERNAME}' already exists."
+            echo "Group '${USERNAME}' or GID 1000 already exists."
+        fi
+
+        # Check if user 'node' exists before attempting creation
+        if ! id -u ${USERNAME} > /dev/null 2>&1; then
+            echo "Creating user '${USERNAME}' with UID 1000."
+            # Create user with UID 1000, GID 1000 (or group 'node'), create home, set shell
+            useradd --uid 1000 --gid 1000 -m -s /bin/bash ${USERNAME}
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to create user '${USERNAME}'."
+                # Attempt to find if another user has UID 1000 now
+                EXISTING_USER_1000_POST_FAIL=$(id -un 1000 2>/dev/null)
+                if [ -n "${EXISTING_USER_1000_POST_FAIL}" ]; then
+                     echo "It seems user '${EXISTING_USER_1000_POST_FAIL}' already has UID 1000."
+                     USERNAME=${EXISTING_USER_1000_POST_FAIL}
+                     echo "Proceeding with user '${USERNAME}'."
+                else
+                     exit 1 # Exit if user creation failed and UID 1000 is still free
+                fi
+            else
+                 echo "Successfully created user '${USERNAME}'."
+                 # Basic check for home directory existence after creation
+                 EXPECTED_HOME="/home/${USERNAME}"
+                 if [ ! -d "${EXPECTED_HOME}" ]; then
+                     echo "Warning: Home directory '${EXPECTED_HOME}' was not created automatically by useradd -m. Manual check needed later."
+                 fi
+            fi
+        else
+            echo "User '${USERNAME}' already exists. Checking UID."
+            EXISTING_UID=$(id -u ${USERNAME})
+            if [ "${EXISTING_UID}" != "1000" ]; then
+                echo "Error: User '${USERNAME}' exists but has UID ${EXISTING_UID}, not 1000. Cannot proceed."
+                exit 1
+            else
+                echo "User '${USERNAME}' exists with correct UID 1000."
+            fi
         fi
     fi
 # 3. Running as non-root

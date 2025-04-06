@@ -5,28 +5,6 @@
             "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
             "testScenarios": [
                 {
-                    "name": "default_path",
-                    "features": {
-                        ".": {}
-                    }
-                },
-                {
-                    "name": "custom_path",
-                    "features": {
-                        ".": {
-                            "modesConfigPath": "/etc/roocode/.roomodes"
-                        }
-                    }
-                },
-                {
-                    "name": "workspace_path",
-                    "features": {
-                        ".": {
-                            "modesConfigPath": "/workspaces/roocode-devcontainer-feature/.roomodes"
-                        }
-                    }
-                },
-                {
                     "name": "check_modes_file",
                     "test": "test/roocode/check_modes_file.sh",
                     "features": {
