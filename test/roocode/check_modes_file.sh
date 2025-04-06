@@ -1,22 +1,32 @@
 #!/bin/bash
+# check_modes_file.sh - Test script to verify .roomodes file existence and content
+
 set -e
 
-# Check if the directory exists
-if ! test -d /home/node/.config/roocode; then
-  echo "Error: /home/node/.config/roocode directory does not exist"
+# Variables
+MODES_DIR="/home/node/.config/roocode"
+MODES_FILE="${MODES_DIR}/.roomodes"
+
+# Check if directory exists
+if ! test -d "${MODES_DIR}"; then
+  echo "Error: Modes directory '${MODES_DIR}' does not exist." >&2
   exit 1
 fi
+echo "Directory '${MODES_DIR}' exists."
 
-# Check if the file exists
-if ! test -f /home/node/.config/roocode/.roomodes; then
-  echo "Error: /home/node/.config/roocode/.roomodes file does not exist"
+# Check if file exists
+if ! test -f "${MODES_FILE}"; then
+  echo "Error: Modes file '${MODES_FILE}' does not exist." >&2
   exit 1
 fi
+echo "File '${MODES_FILE}' exists."
 
-# Check if the file is not empty
-if ! test -s /home/node/.config/roocode/.roomodes; then
-  echo "Error: /home/node/.config/roocode/.roomodes file is empty"
+# Check if file is not empty
+if ! test -s "${MODES_FILE}"; then
+  echo "Error: Modes file '${MODES_FILE}' is empty." >&2
   exit 1
 fi
+echo "File '${MODES_FILE}' is not empty."
 
-echo "/home/node/.config/roocode/.roomodes checks passed"
+echo "Success: Modes file check passed."
+exit 0

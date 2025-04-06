@@ -28,7 +28,11 @@
                     }
                 },
                 {
-                    "name": "check_modes_file"
+                    "name": "check_modes_file",
+                    "test": "test/roocode/check_modes_file.sh",
+                    "features": {
+                        ".": {}
+                    }
                 }
             ]
         }

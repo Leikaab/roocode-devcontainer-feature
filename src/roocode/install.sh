@@ -46,34 +46,57 @@ else
     echo "Running as non-root user '${USERNAME}'."
 fi
 
-# Determine home directory
-# Prefer _REMOTE_USER_HOME if set and valid
-if [ -n "${_REMOTE_USER_HOME}" ] && [ -d "${_REMOTE_USER_HOME}" ]; then
-     USER_HOME="${_REMOTE_USER_HOME}"
-     echo "Using provided _REMOTE_USER_HOME: ${USER_HOME}"
-elif [ "${USERNAME}" = "root" ]; then
-     # This case should ideally not be reached for USER_HOME determination if logic above works
-     USER_HOME="/root"
-     echo "Warning: Determined user is root. Using home: ${USER_HOME}"
-else
-     # Get home dir of the determined user from /etc/passwd
-     USER_HOME=$(getent passwd ${USERNAME} | cut -d: -f6)
-     # Fallback if getent fails or home dir doesn't exist
-     if [ -z "${USER_HOME}" ] || [ ! -d "${USER_HOME}" ]; then
+# Determine home directory for the determined USERNAME
+# 1. Prefer _REMOTE_USER_HOME if set and valid for the determined user
+#    (Note: This might be set for root, but we want the non-root user's home)
+#    We will prioritize finding the actual user's home first.
+
+# 2. Get home dir of the determined USERNAME from /etc/passwd
+USER_HOME=$(getent passwd ${USERNAME} | cut -d: -f6)
+echo "Attempting to get home directory for '${USERNAME}' via getent: Result='${USER_HOME}'"
+
+# 3. Fallback if getent fails or home dir doesn't exist/isn't a directory
+if [ -z "${USER_HOME}" ] || [ ! -d "${USER_HOME}" ]; then
+    # If _REMOTE_USER_HOME is set AND matches the determined USERNAME's expected home, use it.
+    # This handles cases where home might be non-standard but provided.
+    EXPECTED_REMOTE_HOME_FOR_USER="/home/${USERNAME}" # Common pattern
+    if [ -n "${_REMOTE_USER_HOME}" ] && [ -d "${_REMOTE_USER_HOME}" ]; then
+         # Simple check: Does the provided home belong to the user?
+         # A more robust check might involve stat -c '%U' $_REMOTE_USER_HOME
+         # For now, we assume if _REMOTE_USER_HOME is provided, it's intended.
+         USER_HOME="${_REMOTE_USER_HOME}"
+         echo "Home directory for '${USERNAME}' not found via getent. Using provided _REMOTE_USER_HOME: ${USER_HOME}"
+    else
+        # Standard fallback
         FALLBACK_HOME="/home/${USERNAME}"
-        echo "Home directory for ${USERNAME} not found or invalid via getent. Using fallback: ${FALLBACK_HOME}"
+        echo "Home directory for '${USERNAME}' not found via getent and _REMOTE_USER_HOME not suitable/provided. Using standard fallback: ${FALLBACK_HOME}"
         USER_HOME="${FALLBACK_HOME}"
         # Ensure home directory exists if we derived it
         if [ ! -d "${USER_HOME}" ]; then
             echo "Creating home directory ${USER_HOME} for user ${USERNAME}."
             mkdir -p "${USER_HOME}"
-            # Determine group name - often same as username, or use primary group ID
             USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME})
             chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"
         fi
-     else
-        echo "Using home directory from /etc/passwd: ${USER_HOME}"
-     fi
+    fi
+else
+    echo "Using home directory for '${USERNAME}' from /etc/passwd: ${USER_HOME}"
+fi
+
+# 4. Final check: If _REMOTE_USER is set and _REMOTE_USER_HOME is provided,
+#    ensure USER_HOME matches _REMOTE_USER_HOME if they are for the same user.
+#    This handles cases where getent might find a different home than specified.
+if [ -n "${_REMOTE_USER}" ] && [ "${_REMOTE_USER}" = "${USERNAME}" ] && \
+   [ -n "${_REMOTE_USER_HOME}" ] && [ "${USER_HOME}" != "${_REMOTE_USER_HOME}" ]; then
+    echo "Warning: Determined home '${USER_HOME}' differs from provided _REMOTE_USER_HOME '${_REMOTE_USER_HOME}' for user '${USERNAME}'. Preferring _REMOTE_USER_HOME."
+    USER_HOME="${_REMOTE_USER_HOME}"
+    # Ensure the directory exists if we switch to it
+    if [ ! -d "${USER_HOME}" ]; then
+        echo "Creating preferred home directory ${_REMOTE_USER_HOME}..."
+        mkdir -p "${USER_HOME}"
+        USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME})
+        chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"
+    fi
 fi
 
 
