@@ -5,21 +5,90 @@ set -e
 
 # Input variable from devcontainer-feature.json options
 # Default path uses _REMOTE_USER_HOME if MODESCONFIGPATH is not set
-MODESCONFIGPATH="${MODESCONFIGPATH:-${_REMOTE_USER_HOME}/.config/roocode/.roomodes}"
+# This will be set later after USER_HOME is determined
+# MODESCONFIGPATH="${MODESCONFIGPATH:-${_REMOTE_USER_HOME}/.config/roocode/.roomodes}"
 
-# Ensure _REMOTE_USER is set (standard in dev containers)
-# Fallback to trying to get the user ID if _REMOTE_USER isn't set (less common)
-_REMOTE_USER="${_REMOTE_USER:-"$(id -un 1000 2>/dev/null || echo vscode)"}" # Common non-root user IDs are 1000, or 'vscode'
-if [ -z "${_REMOTE_USER}" ] || [ "${_REMOTE_USER}" = "root" ]; then
-    echo "Error: Could not determine a non-root user. Please ensure _REMOTE_USER is set or a user with ID 1000 exists."
+# Determine the non-root user and home directory
+USERNAME=""
+USER_HOME=""
+
+# 1. Check if _REMOTE_USER is set and non-root
+if [ -n "${_REMOTE_USER}" ] && [ "${_REMOTE_USER}" != "root" ]; then
+    USERNAME="${_REMOTE_USER}"
+    echo "Using provided _REMOTE_USER: ${USERNAME}"
+# 2. Check if running as root
+elif [ "$(id -u)" -eq 0 ]; then
+    echo "Running as root."
+    # Try to find user 1000
+    EXISTING_USER_1000=$(id -un 1000 2>/dev/null)
+    if [ -n "${EXISTING_USER_1000}" ]; then
+        USERNAME=${EXISTING_USER_1000}
+        echo "Using existing user '${USERNAME}' (UID 1000)."
+    else
+        # If user 1000 not found, create a default user 'node'
+        USERNAME=node
+        echo "User 1000 not found. Checking/creating user '${USERNAME}' with UID 1000."
+        if ! id -u ${USERNAME} > /dev/null 2>&1; then
+            # Create group if it doesn't exist
+            if ! getent group ${USERNAME} > /dev/null 2>&1; then
+                groupadd -r ${USERNAME} -g 1000
+            fi
+            # Create user
+            useradd -l -r -u 1000 -g ${USERNAME} -m -s /bin/bash ${USERNAME}
+            echo "Created user '${USERNAME}'."
+        else
+             echo "User '${USERNAME}' already exists."
+        fi
+    fi
+# 3. Running as non-root
+else
+    USERNAME=$(id -un)
+    echo "Running as non-root user '${USERNAME}'."
+fi
+
+# Determine home directory
+# Prefer _REMOTE_USER_HOME if set and valid
+if [ -n "${_REMOTE_USER_HOME}" ] && [ -d "${_REMOTE_USER_HOME}" ]; then
+     USER_HOME="${_REMOTE_USER_HOME}"
+     echo "Using provided _REMOTE_USER_HOME: ${USER_HOME}"
+elif [ "${USERNAME}" = "root" ]; then
+     # This case should ideally not be reached for USER_HOME determination if logic above works
+     USER_HOME="/root"
+     echo "Warning: Determined user is root. Using home: ${USER_HOME}"
+else
+     # Get home dir of the determined user from /etc/passwd
+     USER_HOME=$(getent passwd ${USERNAME} | cut -d: -f6)
+     # Fallback if getent fails or home dir doesn't exist
+     if [ -z "${USER_HOME}" ] || [ ! -d "${USER_HOME}" ]; then
+        FALLBACK_HOME="/home/${USERNAME}"
+        echo "Home directory for ${USERNAME} not found or invalid via getent. Using fallback: ${FALLBACK_HOME}"
+        USER_HOME="${FALLBACK_HOME}"
+        # Ensure home directory exists if we derived it
+        if [ ! -d "${USER_HOME}" ]; then
+            echo "Creating home directory ${USER_HOME} for user ${USERNAME}."
+            mkdir -p "${USER_HOME}"
+            # Determine group name - often same as username, or use primary group ID
+            USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME})
+            chown "${USERNAME}:${USER_GROUP}" "${USER_HOME}"
+        fi
+     else
+        echo "Using home directory from /etc/passwd: ${USER_HOME}"
+     fi
+fi
+
+
+# Final check for valid user and home
+if [ -z "${USERNAME}" ] || [ -z "${USER_HOME}" ]; then
+    echo "Error: Could not reliably determine a valid user or home directory."
     exit 1
 fi
-_REMOTE_USER_HOME="${_REMOTE_USER_HOME:-"/home/${_REMOTE_USER}"}" # Define home if not set
 
+# Now set the MODESCONFIGPATH using the determined USER_HOME
+MODESCONFIGPATH="${MODESCONFIGPATH:-${USER_HOME}/.config/roocode/.roomodes}"
 echo "Installing roocode feature..."
 echo "Modes config path: ${MODESCONFIGPATH}"
-echo "Remote user: ${_REMOTE_USER}"
-echo "Remote user home: ${_REMOTE_USER_HOME}"
+echo "Determined user: ${USERNAME}"
+echo "Determined user home: ${USER_HOME}"
 
 # Install jq for JSON manipulation
 echo "Installing jq..."
@@ -130,7 +199,7 @@ description = "You analyze code, error messages, and context to identify the roo
 EOF
 
 # Update VS Code settings.json
-SETTINGS_JSON_PATH="${_REMOTE_USER_HOME}/.vscode-server/data/Machine/settings.json"
+SETTINGS_JSON_PATH="${USER_HOME}/.vscode-server/data/Machine/settings.json"
 SETTINGS_DIR="$(dirname "$SETTINGS_JSON_PATH")"
 
 echo "Updating VS Code settings at ${SETTINGS_JSON_PATH}..."
@@ -140,14 +209,16 @@ mkdir -p "$SETTINGS_DIR"
 if [ ! -f "$SETTINGS_JSON_PATH" ]; then
     echo "{}" > "$SETTINGS_JSON_PATH"
     echo "Initialized empty ${SETTINGS_JSON_PATH}"
-    chown "${_REMOTE_USER}:${_REMOTE_USER}" "$SETTINGS_JSON_PATH"
+    USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME}) # Get group or fallback to username
+    chown "${USERNAME}:${USER_GROUP}" "$SETTINGS_JSON_PATH"
 fi
 
 # Ensure the file is valid JSON or re-initialize it
 if ! jq empty "$SETTINGS_JSON_PATH" > /dev/null 2>&1; then
     echo "Warning: ${SETTINGS_JSON_PATH} contains invalid JSON. Re-initializing."
     echo "{}" > "$SETTINGS_JSON_PATH"
-    chown "${_REMOTE_USER}:${_REMOTE_USER}" "$SETTINGS_JSON_PATH" # Ensure ownership after potential overwrite
+    USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME}) # Get group or fallback to username
+    chown "${USERNAME}:${USER_GROUP}" "$SETTINGS_JSON_PATH" # Ensure ownership after potential overwrite
 fi
 
 # Add/update the setting using jq safely
@@ -164,11 +235,12 @@ fi
 
 # Set ownership for modes directory and settings directory
 echo "Setting ownership for created files/directories..."
-chown -R "${_REMOTE_USER}:${_REMOTE_USER}" "${MODES_DIR}"
+USER_GROUP=$(id -gn ${USERNAME} 2>/dev/null || echo ${USERNAME}) # Get group or fallback to username
+chown -R "${USERNAME}:${USER_GROUP}" "${MODES_DIR}"
 # Ensure settings dir ownership is correct too, in case mkdir created it
-chown -R "${_REMOTE_USER}:${_REMOTE_USER}" "$SETTINGS_DIR"
+chown -R "${USERNAME}:${USER_GROUP}" "$SETTINGS_DIR"
 # Ensure settings file ownership is correct after modification by root (jq)
-chown "${_REMOTE_USER}:${_REMOTE_USER}" "$SETTINGS_JSON_PATH"
+chown "${USERNAME}:${USER_GROUP}" "$SETTINGS_JSON_PATH"
 
 
 echo "roocode feature installation complete."

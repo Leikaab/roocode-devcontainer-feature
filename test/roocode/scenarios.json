@@ -26,6 +26,9 @@
                             "modesConfigPath": "/workspaces/roocode-devcontainer-feature/.roomodes"
                         }
                     }
+                },
+                {
+                    "name": "check_modes_file"
                 }
             ]
         }
