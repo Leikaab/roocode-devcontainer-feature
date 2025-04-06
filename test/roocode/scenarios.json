@@ -3,7 +3,7 @@
         "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
         "test": "test/roocode/check_modes_file.sh",
         "features": {
-            ".": {}
+            "src/roocode": {}
         }
     }
 }
