@@ -1,17 +1,9 @@
 {
-    "testSuites": [
-        {
-            "name": "roocode",
-            "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-            "testScenarios": [
-                {
-                    "name": "check_modes_file",
-                    "test": "test/roocode/check_modes_file.sh",
-                    "features": {
-                        ".": {}
-                    }
-                }
-            ]
+    "check_modes_file": {
+        "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+        "test": "test/roocode/check_modes_file.sh",
+        "features": {
+            ".": {}
         }
-    ]
+    }
 }

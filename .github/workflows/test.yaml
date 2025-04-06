@@ -65,4 +65,4 @@ jobs:
         run: npm install -g @devcontainers/cli
 
       - name: "Validate features"
-        run: devcontainer features validate --workspace-folder . src
+        run: devcontainer features package --workspace-folder . src
