@@ -15,11 +15,14 @@ _REMOTE_USER="${_REMOTE_USER:-"$(id -un 1000 2>/dev/null || echo vscode)"}"
 _REMOTE_USER_HOME="${_REMOTE_USER_HOME:-"/home/${_REMOTE_USER}"}"
 
 # Options specific to this feature
-MODESCONFIGPATH="${MODESCONFIGPATH:-"/home/node/.config/roocode/.roomodes"}" # Default value if not set
+# MODESCONFIGPATH is now expected to be set by the test framework based on scenarios.json
 SETTINGS_JSON_PATH="${_REMOTE_USER_HOME}/.vscode-server/data/Machine/settings.json"
 
+# Ensure jq is available
+check "jq is installed" command -v jq
+
 # Definition specific tests
-check "Verify modes config file exists at specified path" test -f "$MODESCONFIGPATH"
+check "Verify modes config file exists at specified path (\$MODESCONFIGPATH)" test -f "$MODESCONFIGPATH"
 
 # Check if settings directory exists before checking the file itself
 check "Verify VS Code settings directory exists" test -d "$(dirname "$SETTINGS_JSON_PATH")"

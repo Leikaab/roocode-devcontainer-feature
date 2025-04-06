@@ -1,0 +1,33 @@
+{
+    "version": "0.1.0",
+    "testSuites": [
+        {
+            "name": "roocode",
+            "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+            "testScenarios": [
+                {
+                    "name": "default_path",
+                    "features": {
+                        ".": {}
+                    }
+                },
+                {
+                    "name": "custom_path",
+                    "features": {
+                        ".": {
+                            "modesConfigPath": "/etc/roocode/.roomodes"
+                        }
+                    }
+                },
+                {
+                    "name": "workspace_path",
+                    "features": {
+                        ".": {
+                            "modesConfigPath": "/workspaces/roocode-devcontainer-feature/.roomodes"
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

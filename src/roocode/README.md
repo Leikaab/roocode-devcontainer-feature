@@ -1,33 +1,49 @@
-# RooCode Integration (roocode)
+# RooCode Integration (roocode) Devcontainer Feature
 
-Installs the `RooVeterinaryInc.roo-cline` VS Code extension and configures its default operational modes within the dev container for a seamless setup.
+This feature integrates the RooCode AI coding assistant (`RooVeterinaryInc.roo-cline` VS Code extension) into your development container. It installs the extension and sets up a default configuration for its operational modes, providing a ready-to-use AI coding environment.
 
 ## How it Works
 
-This feature performs the following actions:
+This feature automates the setup process through two main steps:
 
-1.  **Extension Installation:** Adds the `RooVeterinaryInc.roo-cline` extension to the list of extensions to be installed in the dev container's VS Code instance.
-2.  **Configuration Script (`install.sh`):**
-    *   Creates a default `.roomodes` configuration file at a specified path (default: `/home/node/.config/roocode/.roomodes`). This location is intentionally outside the project workspace to avoid cluttering user projects.
-    *   Updates the container's VS Code `settings.json` file to point the `roo-cline` extension to this centrally located `.roomodes` configuration file using the `roocode.modesConfigPath` setting.
+1.  **Extension Installation (`devcontainer-feature.json`):** The `RooVeterinaryInc.roo-cline` VS Code extension is automatically added to the list of extensions installed within the dev container's VS Code instance when the container is built or reopened.
+2.  **Configuration Script (`install.sh`):** During the container build process, this script executes the following:
+    *   **Creates Default Modes Configuration:** It generates a default `.roomodes` configuration file at the path specified by the `modesConfigPath` option (defaulting to `/home/node/.config/roocode/.roomodes`). This location is typically outside the project workspace to keep project directories clean. This file includes pre-defined modes such as:
+        *   Boomerang Mode (Workflow Orchestrator)
+        *   Senior Code Generator
+        *   Junior Code Generator
+        *   Free Ratelimited Junior Code Generator
+        *   Infrastructure Code Generator
+        *   Code Reviewer
+        *   Code Optimizer
+        *   Test Writer
+        *   Pseudocode Architect
+        *   Specification Writer
+        *   Documentation Writer
+        *   Debugger
+    *   **Updates VS Code Settings:** It modifies the container's VS Code `settings.json` file, setting the `roocode.modesConfigPath` property to point the RooCode extension to the generated `.roomodes` file. This ensures the extension loads the default modes correctly.
 
 ## Example Usage
 
-Include the feature in your `devcontainer.json`:
+To include this feature in your project, add it to your `devcontainer.json` file:
 
 ```json
 {
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
-    "ghcr.io/your-repo/roocode-devcontainer-feature/roocode:1": {}
+    "ghcr.io/RooVeterinaryInc/roocode-devcontainer-feature/roocode:latest": {}
   }
 }
 ```
 
-*(Note: Replace `ghcr.io/your-repo/roocode-devcontainer-feature/roocode:1` with the actual registry path once published.)*
+**Important:** Replace `ghcr.io/RooVeterinaryInc/roocode-devcontainer-feature/roocode:latest` with the correct OCI registry path where this feature is published. Using `latest` is shown for simplicity; pinning to a specific version (e.g., `:1`) is recommended for stable builds.
 
 ## Options
 
 | Option            | Type   | Default                             | Description                                                                                                                               |
 | ----------------- | ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `modesConfigPath` | string | `/home/node/.config/roocode/.roomodes` | Specifies the path within the container where the default `.roomodes` configuration file will be created and referenced by VS Code settings. |
+| `modesConfigPath` | string | `/home/node/.config/roocode/.roomodes` | Specifies the absolute path within the container where the default `.roomodes` configuration file will be created and referenced by VS Code settings. |
+
+## Testing
+
+This feature includes automated tests executed using the standard `devcontainer features test` command. You can find the test scripts and scenarios within the `test/roocode` directory.
